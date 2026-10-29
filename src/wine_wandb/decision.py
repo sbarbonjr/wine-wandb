@@ -104,6 +104,27 @@ def figure_threshold(y_true, score, grid, costs, tau_default, tau_chosen, path):
     plt.close(fig)
 
 
+def figure_score_strip(y_true, score, taus, path):
+    """Test-split scores by class, with the thresholds drawn as vertical cuts."""
+    rng = np.random.default_rng(0)
+    fig, ax = plt.subplots(figsize=(7.0, 2.2))
+    for flag, label, color in ((0, "standard wine", BLUE), (1, "premium wine", GOLD)):
+        values = score[y_true == flag]
+        ax.scatter(values, flag + rng.uniform(-0.28, 0.28, len(values)), s=9, alpha=0.7,
+                   color=color, label=label, linewidths=0)
+    for tau, color, label in taus:
+        ax.axvline(tau, color=color, lw=1.4)
+        ax.text(tau, 1.5, label, color=color, fontsize=7, ha="center", va="bottom")
+    ax.set_yticks([0, 1], ["standard", "premium"])
+    ax.set(xlabel=r"score $\hat{p}(\mathbf{x})$ of the random forest (test split)", ylim=(-0.5, 1.75), xlim=(-0.02, 1.02))
+    ax.text(0.99, -0.45, r"wines to the right of a line are labelled premium", ha="right", fontsize=7, color=GRAY)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.tick_params(labelsize=7)
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
 def figure_auc_curves(y_true, score, taus, path):
     """ROC and precision-recall curves on the test split, with the two thresholds marked."""
     fpr, tpr, _ = roc_curve(y_true, score)
@@ -187,6 +208,8 @@ def main(argv=None):
     figure_confusion(default["tn"], default["fp"], default["fn"], default["tp"], 0.5,
                      out / "wine_confusion_matrix.pdf")
     figure_threshold(y_train, oof, grid, costs, 0.5, tau_chosen, out / "wine_threshold_cost.pdf")
+    taus = [(0.5, GRAY, r"$\tau$ = 0.50"), (tau_chosen, "#B3261E", rf"$\tau$ = {tau_chosen:.2f}")]
+    figure_score_strip(y_test, score, taus, out / "wine_score_strip.pdf")
     figure_auc_curves(
         y_test,
         score,
