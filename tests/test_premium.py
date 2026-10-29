@@ -4,7 +4,7 @@ import pandas as pd
 from wine_wandb import premium
 
 
-def test_premium_label_threshold():
+def test_premium_label_cutoff():
     assert premium.premium([5, 6, 7, 8]).tolist() == [0, 0, 1, 1]
 
 

@@ -26,7 +26,7 @@ def build_classifier(seed: int, n_estimators: int = 300) -> Pipeline:
 
 
 def classification_metrics(y_true, y_pred, score) -> dict:
-    """Counts and metrics of the predicted classes, plus the threshold-free AUCs of the scores."""
+    """Counts and metrics of the predicted classes, plus the AUCs of the scores."""
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
     return {
         "tn": int(tn),
