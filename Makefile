@@ -1,4 +1,4 @@
-.PHONY: install data train sweep evaluate decision test
+.PHONY: install data train train-classifier sweep evaluate evaluate-premium decision test
 
 install:
 	pip install -r requirements.txt && pip install -e .
@@ -9,12 +9,19 @@ data:
 train:
 	python -m wine_wandb.train
 
+train-classifier:
+	python -m wine_wandb.train_classifier
+
 sweep:
 	python -m wine_wandb.sweep
 
 # usage: make evaluate ARTIFACT=wine-pipeline:v3
 evaluate:
 	python -m wine_wandb.evaluate --artifact $(ARTIFACT)
+
+# usage: make evaluate-premium ARTIFACT=wine-premium:v0
+evaluate-premium:
+	python -m wine_wandb.evaluate --task premium --artifact $(ARTIFACT)
 
 decision:
 	python -m wine_wandb.decision

@@ -1,0 +1,5 @@
+project: wine-quality
+seed: 42
+test_size: 0.25
+cv_folds: 5
+n_estimators: 300

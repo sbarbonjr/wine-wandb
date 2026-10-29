@@ -14,62 +14,23 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import average_precision_score, confusion_matrix
-from sklearn.model_selection import StratifiedKFold, cross_val_predict
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import average_precision_score
 
 from wine_wandb import data
-
-PREMIUM_MIN_QUALITY = 7
-COST_FALSE_POSITIVE = 1.0  # a standard wine sold as premium
-COST_FALSE_NEGATIVE = 5.0  # a premium wine sold as standard
+from wine_wandb.premium import (
+    COST_FALSE_NEGATIVE,
+    COST_FALSE_POSITIVE,
+    PREMIUM_MIN_QUALITY,
+    THRESHOLD_GRID,
+    build_classifier,
+    choose_threshold,
+    counts,
+    out_of_fold_scores,
+    premium,
+    summarize,
+)
 BLUE, GOLD, GRAY = "#12355B", "#C98A2E", "#4B5563"
 plt.rcParams.update({"font.size": 8, "axes.titlesize": 9, "axes.labelsize": 8})
-
-
-def premium(quality):
-    return (np.asarray(quality) >= PREMIUM_MIN_QUALITY).astype(int)
-
-
-def build_classifier(seed: int, n_estimators: int = 300) -> Pipeline:
-    return Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            ("model", RandomForestClassifier(n_estimators=n_estimators, random_state=seed)),
-        ]
-    )
-
-
-def counts(y_true, score, tau):
-    tn, fp, fn, tp = confusion_matrix(y_true, (score >= tau).astype(int), labels=[0, 1]).ravel()
-    return int(tn), int(fp), int(fn), int(tp)
-
-
-def cost(fp, fn, c_fp=COST_FALSE_POSITIVE, c_fn=COST_FALSE_NEGATIVE):
-    return c_fp * fp + c_fn * fn
-
-
-def summarize(y_true, score, tau):
-    tn, fp, fn, tp = counts(y_true, score, tau)
-    return {
-        "tau": float(tau),
-        "tn": tn,
-        "fp": fp,
-        "fn": fn,
-        "tp": tp,
-        "precision": tp / (tp + fp) if tp + fp else 0.0,
-        "recall": tp / (tp + fn) if tp + fn else 0.0,
-        "accuracy": (tp + tn) / len(y_true),
-        "cost": cost(fp, fn),
-    }
-
-
-def choose_threshold(y_true, score, grid):
-    """Threshold minimizing the cost; ties resolved by the median of the minimizers."""
-    costs = np.array([cost(*counts(y_true, score, t)[1:3]) for t in grid])
-    return float(np.median(grid[costs == costs.min()])), costs
 
 
 def figure_overview(df, y_train_binary, importances, path):
@@ -159,10 +120,9 @@ def main(argv=None):
     y_train, y_test = premium(q_train), premium(q_test)
 
     pipeline = build_classifier(cfg["seed"])
-    folds = StratifiedKFold(cfg["cv_folds"], shuffle=True, random_state=cfg["seed"])
-    oof = cross_val_predict(pipeline, X_train, y_train, cv=folds, method="predict_proba")[:, 1]
+    oof = out_of_fold_scores(pipeline, X_train, y_train, cfg["cv_folds"], cfg["seed"])
 
-    grid = np.round(np.arange(0.02, 0.99, 0.01), 2)
+    grid = THRESHOLD_GRID
     tau_chosen, costs = choose_threshold(y_train, oof, grid)
 
     pipeline.fit(X_train, y_train)
