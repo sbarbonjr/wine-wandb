@@ -23,6 +23,48 @@ framings of the same problem. Both are tracked, versioned, and registered the sa
 
 Both tasks share the data module, the fixed 75/25 split, and the seed.
 
+## The activity
+
+The goal is not to build the best wine model, but to practice the workflow around a model so
+that every result can be traced and reproduced. Starting from the same dataset, you:
+
+1. fit a **baseline** and log it to W&B (hyperparameters, cross-validated metrics, timing, dataset SHA-256, Git commit);
+2. run a **hyperparameter sweep** and compare runs in the dashboard, using the mean and standard deviation of the CV score;
+3. save the full pipeline (scaler + model) as a **versioned artifact**;
+4. pick a version using **cross-validation only**, score it **once** on the held-out test split, and, if approved, **promote** it in the W&B Registry (rolling back means moving the alias).
+
+Task 2 adds a decision on top of the score: a wine is flagged as premium when the model predicts
+class 1. Because only 13.6% of the wines are premium, accuracy alone is misleading (always
+answering "standard" already gets 86.7% on the test split), so the evaluation looks at
+precision, recall, F1, and the AUCs as well.
+
+## Results (task 2, test split)
+
+Random forest (300 trees) trained on 1,199 wines and scored once on the 400 held-out wines
+(53 of them premium). Reproduce with `make figures`.
+
+![Dataset overview: quality scores, feature importance, and alcohol by class](docs/figures/wine_overview.png)
+
+- Premium wines (gold) are the minority: scores 7 and 8 make up 217 of 1,599 wines.
+- Alcohol is the most important feature (0.17), followed by sulphates, volatile acidity, density, and citric acid.
+- Premium wines have a higher median alcohol content (11.6% vs 10.0% vol.).
+
+<img src="docs/figures/wine_confusion_matrix.png" alt="Confusion matrix on the test split" width="320">
+
+| Metric | Value |
+|---|---|
+| Accuracy | 0.910 (majority-class baseline: 0.867) |
+| Precision | 0.718 |
+| Recall | 0.528 |
+| F1 | 0.609 |
+| ROC-AUC | 0.939 |
+| PR-AUC | 0.753 |
+
+The model ranks wines well (ROC-AUC 0.94) but, at the default 0.5 threshold, it is cautious:
+28 of 53 premium wines are found (recall 0.53), with 11 false alarms, and 25 premium wines are missed.
+Whether that trade-off is acceptable depends on the cost of each kind of error, which is the point
+of the decision-support example used in class.
+
 ## Quick start
 
 ```bash
@@ -55,6 +97,7 @@ make test              # no network or account required
 | `src/wine_wandb/evaluate.py` | Scores an artifact on the untouched test split (`--task regression` or `premium`) |
 | `src/wine_wandb/register.py` | Links an approved artifact version to a Registry collection |
 | `src/wine_wandb/figures.py` | Figures and numbers for the slides: dataset overview and test confusion matrix |
+| `docs/figures/` | PNG copies of the figures shown in this README (`reports/` is git-ignored) |
 | `tests/` | Unit tests and smoke tests (`WANDB_MODE=disabled`) |
 
 ## The four checkpoints
