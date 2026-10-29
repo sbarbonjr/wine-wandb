@@ -68,17 +68,11 @@ make test              # no network or account required
 
 The test split is read only by `evaluate.py` and `figures.py`. Model selection uses cross-validation on the training split.
 
-## Using this repository in a course repository
+## Relation to the course
 
-As a Git submodule:
-
-```bash
-git submodule add <url-of-this-repository> projects/wine-wandb
-git clone --recurse-submodules <url-of-the-course-repository>   # for new clones
-git submodule update --init                                     # for existing clones
-```
-
-Because W&B records the commit of the repository where the script runs, a run launched inside the submodule points to a commit of this project alone.
+This repository is kept separate from the course repository (440MI). Clone it on its own and
+follow the quick start above. Because W&B records the commit of the repository where the script
+runs, every run points to a commit of this project alone.
 
 ## Data
 
