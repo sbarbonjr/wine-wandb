@@ -14,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score, roc_curve
 
 from wine_wandb import data
 from wine_wandb.premium import (
@@ -104,6 +104,33 @@ def figure_threshold(y_true, score, grid, costs, tau_default, tau_chosen, path):
     plt.close(fig)
 
 
+def figure_auc_curves(y_true, score, taus, path):
+    """ROC and precision-recall curves on the test split, with the two thresholds marked."""
+    fpr, tpr, _ = roc_curve(y_true, score)
+    precision, recall, _ = precision_recall_curve(y_true, score)
+    fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.0))
+    axes[0].plot(fpr, tpr, color=BLUE, lw=1.8)
+    axes[0].plot([0, 1], [0, 1], color=GRAY, ls=":", lw=1)
+    axes[0].set(title=f"ROC curve (AUC = {roc_auc_score(y_true, score):.2f})",
+                xlabel="false positive rate", ylabel="true positive rate")
+    axes[1].plot(recall, precision, color=BLUE, lw=1.8)
+    axes[1].axhline(np.mean(y_true), color=GRAY, ls=":", lw=1)
+    axes[1].text(0.02, np.mean(y_true) + 0.02, "chance = share of positives", fontsize=7, color=GRAY)
+    axes[1].set(title=f"Precision-recall curve (AUC = {average_precision_score(y_true, score):.2f})",
+                xlabel="recall", ylabel="precision", ylim=(0, 1.05))
+    for tau, color, label in taus:
+        tn, fp, fn, tp = counts(y_true, score, tau)
+        axes[0].plot(fp / (fp + tn), tp / (tp + fn), "o", color=color, label=label)
+        axes[1].plot(tp / (tp + fn), tp / (tp + fp), "o", color=color, label=label)
+    axes[0].legend(frameon=False, fontsize=7, loc="lower right")
+    for ax in axes:
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.tick_params(labelsize=7)
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/baseline.yaml")
@@ -142,6 +169,7 @@ def main(argv=None):
         "premium_test": int(y_test.sum()),
         "majority_accuracy_test": float(1 - y_test.mean()),
         "pr_auc_test": float(average_precision_score(y_test, score)),
+        "roc_auc_test": float(roc_auc_score(y_test, score)),
         "c_fp": COST_FALSE_POSITIVE,
         "c_fn": COST_FALSE_NEGATIVE,
         "tau_theory": COST_FALSE_POSITIVE / (COST_FALSE_POSITIVE + COST_FALSE_NEGATIVE),
@@ -159,6 +187,12 @@ def main(argv=None):
     figure_confusion(default["tn"], default["fp"], default["fn"], default["tp"], 0.5,
                      out / "wine_confusion_matrix.pdf")
     figure_threshold(y_train, oof, grid, costs, 0.5, tau_chosen, out / "wine_threshold_cost.pdf")
+    figure_auc_curves(
+        y_test,
+        score,
+        [(0.5, GRAY, r"$\tau$ = 0.50"), (tau_chosen, "#B3261E", rf"$\tau$ = {tau_chosen:.2f}")],
+        out / "wine_auc_curves.pdf",
+    )
     print(json.dumps(result, indent=2))
 
 
