@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from wine_wandb import premium
 
@@ -7,13 +8,19 @@ def test_premium_label_threshold():
     assert premium.premium([5, 6, 7, 8]).tolist() == [0, 0, 1, 1]
 
 
-def test_cost_weights_false_negatives_more():
-    assert premium.cost(fp=2, fn=1) == 2 * premium.COST_FALSE_POSITIVE + premium.COST_FALSE_NEGATIVE
+def test_classification_metrics_counts_and_scores():
+    y_true = np.array([1, 1, 0, 0, 0, 0])
+    y_pred = np.array([1, 0, 1, 0, 0, 0])
+    score = np.array([0.9, 0.4, 0.6, 0.2, 0.1, 0.3])
+    metrics = premium.classification_metrics(y_true, y_pred, score)
+    assert (metrics["tp"], metrics["fp"], metrics["fn"], metrics["tn"]) == (1, 1, 1, 3)
+    assert metrics["precision"] == 0.5 and metrics["recall"] == 0.5
+    assert metrics["roc_auc"] == 0.875
 
 
-def test_cost_optimal_threshold_is_below_default():
+def test_classifier_pipeline_fits_and_predicts():
     rng = np.random.default_rng(0)
-    y = (rng.random(2000) < 0.15).astype(int)
-    score = np.clip(0.35 * y + rng.normal(0.25, 0.15, 2000), 0, 1)
-    tau, _ = premium.choose_threshold(y, score, np.round(np.arange(0.02, 0.99, 0.01), 2))
-    assert tau < 0.5
+    X = pd.DataFrame(rng.normal(size=(200, 2)), columns=["a", "b"])
+    y = (X["a"] > 0.8).astype(int).to_numpy()
+    pipeline = premium.build_classifier(0, 20).fit(X, y)
+    assert pipeline.predict(X).shape == (200,)

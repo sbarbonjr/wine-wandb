@@ -1,20 +1,19 @@
 """Checkpoint 4 (first half): evaluate the chosen artifact on the untouched test split, once.
 
 `--task regression` scores a `wine-pipeline` artifact; `--task premium` scores a
-`wine-premium` artifact at its stored threshold and at the default 0.5.
+`wine-premium` artifact using its predicted classes.
 """
 import argparse
-import json
 from pathlib import Path
 
 import joblib
 import numpy as np
 import wandb
 import yaml
-from sklearn.metrics import average_precision_score, mean_absolute_error, mean_squared_error, r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from wine_wandb import data
-from wine_wandb.premium import premium, summarize
+from wine_wandb.premium import classification_metrics, premium
 
 
 def regression_metrics(pipeline, X_test, quality_test):
@@ -26,14 +25,10 @@ def regression_metrics(pipeline, X_test, quality_test):
     }
 
 
-def premium_metrics(pipeline, threshold, X_test, quality_test):
+def premium_metrics(pipeline, X_test, quality_test):
     y_test = premium(quality_test)
-    score = pipeline.predict_proba(X_test)[:, 1]
-    metrics = {"test/pr_auc": float(average_precision_score(y_test, score))}
-    for label, tau in (("chosen", threshold), ("default", 0.5)):
-        for name, value in summarize(y_test, score, tau).items():
-            metrics[f"test/{label}/{name}"] = value
-    return metrics
+    metrics = classification_metrics(y_test, pipeline.predict(X_test), pipeline.predict_proba(X_test)[:, 1])
+    return {f"test/{name}": value for name, value in metrics.items()}
 
 
 def main(argv=None):
@@ -55,8 +50,7 @@ def main(argv=None):
         df = data.load(data.download(args.data))
         _, X_test, _, quality_test = data.split(df, cfg["test_size"], cfg["seed"])
         if args.task == "premium":
-            threshold = json.loads((folder / "threshold.json").read_text())["threshold"]
-            run.log(premium_metrics(pipeline, threshold, X_test, quality_test))
+            run.log(premium_metrics(pipeline, X_test, quality_test))
         else:
             run.log(regression_metrics(pipeline, X_test, quality_test))
 

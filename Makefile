@@ -1,4 +1,4 @@
-.PHONY: install data train train-classifier sweep evaluate evaluate-premium decision test
+.PHONY: install data train train-classifier sweep evaluate evaluate-premium figures test
 
 install:
 	pip install -r requirements.txt && pip install -e .
@@ -23,8 +23,8 @@ evaluate:
 evaluate-premium:
 	python -m wine_wandb.evaluate --task premium --artifact $(ARTIFACT)
 
-decision:
-	python -m wine_wandb.decision
+figures:
+	python -m wine_wandb.figures
 
 test:
 	WANDB_MODE=disabled pytest
